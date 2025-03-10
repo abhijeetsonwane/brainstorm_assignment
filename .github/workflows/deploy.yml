@@ -15,7 +15,7 @@ jobs:
 
       - name: Remove Existing WordPress Files
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
           "sudo rm -rf /var/www/html/wordpress/*"
 
       - name: Sync Files to VPS
@@ -30,12 +30,11 @@ jobs:
 
       - name: Set Correct Ownership and Permissions
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
           "sudo chown -R www-data:www-data /var/www/html/wordpress && \
            sudo find /var/www/html/wordpress -type d -exec chmod 755 {} \; && \
            sudo find /var/www/html/wordpress -type f -exec chmod 644 {} \;"
 
-      - name: Reload Nginx and PHP Services
+      - name: Reload Nginx
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
-          'sudo systemctl reload nginx && sudo systemctl restart php-fpm'
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} 'sudo systemctl reload nginx'
