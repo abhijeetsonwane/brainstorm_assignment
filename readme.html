@@ -1,1 +1,154 @@
-test
+### steps to install lemp 
+
+sudo apt install nginx –y
+sudo apt install mysql-server –y
+sudo add-apt-repository ppa:ondrej/php
+sudo apt install php8.1-fpm php8.1-mysql
+sudo nano /etc/nginx/sites-available/brainstorm
+
+server {
+    listen 80;
+    server_name 13.216.236.163;
+
+    root /var/www/html/wordpress;
+    index index.php index.html;
+
+    # Enable caching for static files
+    location ~* \.(ico|css|js|gif|jpe?g|png|woff2?|eot|ttf|otf|svg|html)$ {
+        expires max;
+        log_not_found off;
+        access_log off;
+    }
+
+    # WordPress Main Rule
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    # PHP Processing
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    # Deny access to hidden files like .htaccess
+    location ~ /\.ht {
+        deny all;
+    }
+
+    # Deny access to WordPress config file for security
+    location ~* wp-config.php {
+        deny all;
+    }
+
+    # Gzip Compression for faster delivery
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+      gzip_vary on;
+}
+
+
+sudo ln -s /etc/nginx/sites-available/brainstorm /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+####  create database 
+
+
+
+CREATE DATABASE brainstorm;
+CREATE USER 'wp_user'@'localhost' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON brainstorm.* TO 'wp_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+##################################
+install wordpress
+
+cd /var/www/html
+sudo wget https://wordpress.org/latest.tar.gz
+sudo tar -xvzf latest.tar.gz
+sudo chown -R www-data:www-data /var/www/html/wordpress
+
+######################################################
+ssl installation steps :
+sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+
+following is updated conf file after ssl installation
+
+server {
+    listen 443 ssl;
+    server_name _; 
+
+    ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
+    ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
+
+    root /var/www/html/wordpress;
+    index index.php index.html index.htm;
+
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.1-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+}
+
+server {
+    listen 80;
+    server_name _;
+
+    return 301 https://$host$request_uri;
+}
+
+######################################################################
+
+Following is deploy.yml
+
+
+name: Deploy WordPress
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Remove Existing WordPress Files
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+          "sudo rm -rf /var/www/html/wordpress/*"
+
+      - name: Sync Files to VPS
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "."
+          target: "/var/www/html/wordpress"
+          strip_components: 1
+
+      - name: Set Correct Ownership and Permissions
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+          "sudo chown -R www-data:www-data /var/www/html/wordpress && \
+           sudo find /var/www/html/wordpress -type d -exec chmod 755 {} \; && \
+           sudo find /var/www/html/wordpress -type f -exec chmod 644 {} \;"
+
+#############################################################################################################33
+
+
