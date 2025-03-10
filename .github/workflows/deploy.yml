@@ -13,9 +13,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Add SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+
       - name: Remove Existing WordPress Files
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
           "sudo rm -rf /var/www/html/wordpress/*"
 
       - name: Sync Files to VPS
@@ -30,11 +37,11 @@ jobs:
 
       - name: Set Correct Ownership and Permissions
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
           "sudo chown -R www-data:www-data /var/www/html/wordpress && \
            sudo find /var/www/html/wordpress -type d -exec chmod 755 {} \; && \
            sudo find /var/www/html/wordpress -type f -exec chmod 644 {} \;"
 
       - name: Reload Nginx
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} 'sudo systemctl reload nginx'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} 'sudo systemctl reload nginx'
